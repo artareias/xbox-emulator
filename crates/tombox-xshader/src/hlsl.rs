@@ -2827,9 +2827,19 @@ impl<'a> Emitter<'a> {
                             ),
                         )
                     } else if m == "s_bfm_b64" {
-                        // Bitfield mask ((1 << a) - 1) << b. Lane model keeps the low word;
-                        // counts >= 32 saturate it.
-                        (format!("((({a} & 63u) >= 32u ? 0xffffffffu : ((1u << ({a} & 31u)) - 1u)) << ({b} & 31u))"), "0u".to_string())
+                        // D = ((1 << S0[5:0]) - 1) << S1[5:0] over 64 bits (SCC is not modified).
+                        // Build the 64-bit mask from its two words, then shift the pair left.
+                        let mt = self.tmp;
+                        self.tmp += 1;
+                        self.line(&format!(
+                            "uint m{mt}l = (({a} & 63u) >= 32u) ? 0xffffffffu : ((1u << ({a} & 31u)) - 1u); uint m{mt}h = (({a} & 63u) > 32u) ? ((1u << (({a} & 63u) - 32u)) - 1u) : 0u;"
+                        ));
+                        (
+                            format!("((({b} & 63u) >= 32u) ? 0u : (m{mt}l << ({b} & 31u)))"),
+                            format!(
+                                "((({b} & 63u) == 0u) ? m{mt}h : ((({b} & 63u) >= 32u) ? (m{mt}l << (({b} & 63u) - 32u)) : ((m{mt}h << ({b} & 31u)) | (m{mt}l >> (32u - ({b} & 31u))))))"
+                            ),
+                        )
                     } else {
                         (
                             format!("((scc != 0u) ? {a} : {b})"),
@@ -2842,7 +2852,12 @@ impl<'a> Emitter<'a> {
                     self.ws(&d, &format!("t{t}l"))?;
                     let dh = hi(&d);
                     self.touch(&dh);
-                    return self.ws(&dh, &format!("t{t}h"));
+                    self.ws(&dh, &format!("t{t}h"))?;
+                    if m == "s_lshl_b64" {
+                        // SOP2 shifts set SCC = (result != 0); s_bfm_b64 and s_cselect_b64 leave it alone.
+                        self.line(&format!("scc = ((t{t}l | t{t}h) != 0u) ? 1u : 0u;"));
+                    }
+                    return Ok(());
                 }
                 let is64 = m.ends_with("_b64");
                 let bit = |op: &str, a: &str, b: &str| -> Option<String> {
@@ -3183,7 +3198,16 @@ impl<'a> Emitter<'a> {
                         Ok(())
                     }
                     "s_waitcnt_vscnt" | "s_waitcnt_vmcnt" | "s_waitcnt_expcnt" | "s_waitcnt_lgkmcnt" => Ok(()),
-                    "s_addk_i32" => self.ws(&d, &format!("({} + {imm})", name(&d)?)),
+                    "s_addk_i32" => {
+                        // D = D + signext(SIMM16); SCC = signed overflow.
+                        let dn = name(&d)?;
+                        let t = self.tmp;
+                        self.tmp += 1;
+                        self.line(&format!(
+                            "uint t{t} = {dn} + {imm}; scc = (((({dn} ^ t{t}) & ({imm} ^ t{t})) >> 31) != 0u) ? 1u : 0u;"
+                        ));
+                        self.ws(&d, &format!("t{t}"))
+                    }
                     "s_mulk_i32" => self.ws(&d, &format!("({} * {imm})", name(&d)?)),
                     _ if m.starts_with("s_cmpk_") => {
                         let fake = m.replace("s_cmpk_", "s_cmp_");
