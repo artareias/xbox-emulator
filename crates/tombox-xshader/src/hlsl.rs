@@ -4163,10 +4163,12 @@ impl<'a> Emitter<'a> {
             return self.wv(&d, &format!("tb_perm({}, {}, {})", r(&s[0])?, r(&s[1])?, r(&s[2])?));
         }
         if m == "v_bfe_i32" {
-            // Sign-extended bit field: offset = S1[4:0], width = S2[4:0].
+            // Sign-extended bit field: offset = S1[4:0], width = S2[4:0]. When the field reaches or
+            // passes bit 31 (width + offset >= 32) the arithmetic shift alone already sign-fills it;
+            // the shift-left/shift-right pair below is only valid when width + offset < 32.
             let (a, o, w) = (r(&s[0])?, r(&s[1])?, r(&s[2])?);
             return self.wv(&d, &format!(
-                "((({w}) & 31u) == 0u ? 0u : asuint(asint(({a}) << ((32u - (({w}) & 31u) - (({o}) & 31u)) & 31u)) >> ((32u - (({w}) & 31u)) & 31u)))"));
+                "((({w}) & 31u) == 0u ? 0u : ((({w}) & 31u) + (({o}) & 31u) >= 32u ? asuint(asint({a}) >> (({o}) & 31u)) : asuint(asint(({a}) << (32u - (({w}) & 31u) - (({o}) & 31u))) >> (32u - (({w}) & 31u)))))"));
         }
         if matches!(m.as_str(), "v_movrels_b32" | "v_movreld_b32" | "v_movrelsd_b32") {
             // Register-relative moves: the source and/or destination VGPR number is offset by
