@@ -357,7 +357,7 @@ fn vop3_basic() {
             let ml = vop3p(0x21, 10, [v(1), v(2), v(3)], 0, 7, 0, 0);
             vc(&mut c, "v_fma_mixlo_f16", &[(1, p), (2, q), (3, r)], &ml, &[10], &[D16 | lo]);
             let mh = vop3p(0x22, 10, [v(1), v(2), v(3)], 0, 7, 0, 0);
-            vc(&mut c, "v_fma_mixhi_f16", &[(1, p), (2, q), (3, r)], &mh, &[10], &[(D16 >> 16) | (lo << 16)]);
+            vc(&mut c, "v_fma_mixhi_f16", &[(1, p), (2, q), (3, r)], &mh, &[10], &[(D16 & 0xffff) | (lo << 16)]);
         }
     }
     let m32 = vop3p(0x20, 10, [v(1), v(2), v(3)], 0, 0, 0, 0);
