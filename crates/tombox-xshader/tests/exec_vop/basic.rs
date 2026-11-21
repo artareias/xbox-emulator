@@ -180,7 +180,8 @@ fn vop1_basic() {
         v16(&mut c, "v_floor_f16", 0x5b, 0x4321_0000 | f2h(x), f2h(x.floor()));
         v16(&mut c, "v_ceil_f16", 0x5c, 0x4321_0000 | f2h(x), f2h(x.ceil()));
     }
-    v16(&mut c, "v_ceil_f16", 0x5c, 0xbc00 - 0x3c00 + 0x8001, 0x8000);
+    // Smallest negative subnormal: ceil rounds toward zero and keeps the sign, giving -0.0.
+    v16(&mut c, "v_ceil_f16", 0x5c, 0x8001, 0x8000);
     for &(a, b) in &[(0x1111_1111u32, 0x2222_2222u32), (0, 0xffff_ffff)] {
         let mut pre = pr();
         pre.vv(1, a).vv(10, b);

@@ -4464,7 +4464,7 @@ impl<'a> Emitter<'a> {
             "v_cvt_f32_ubyte2" => Some(format!("(float)(({a} >> 16) & 0xffu)")),
             "v_cvt_f32_ubyte3" => Some(format!("(float)(({a} >> 24) & 0xffu)")),
             "v_cvt_f32_f16" => Some(format!("f16tof32({a})")),
-            "v_fract_f32" => Some(format!("frac({})", fa()?)),
+            "v_fract_f32" => Some(format!("({0} - floor({0}))", fa()?)),
             "v_trunc_f32" => Some(format!("trunc({})", fa()?)),
             "v_ceil_f32" => Some(format!("ceil({})", fa()?)),
             "v_rndne_f32" => Some(format!("tb_rne({})", fa()?)),
