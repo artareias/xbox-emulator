@@ -27,6 +27,22 @@ fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(&p).unwrap_or_else(|e| panic!("missing fixture {}: {e}", p.display()))
 }
 
+/// Fixtures are extracted from local game dumps and are never committed (see CONTRIBUTING.md),
+/// so a clean checkout has no `analysis/shaders/console_xsc` directory. Tests that need them
+/// skip with a notice in that case. If the directory exists, a missing file still fails the test.
+fn fixtures_available() -> bool {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../analysis/shaders/console_xsc").is_dir()
+}
+
+macro_rules! require_fixtures {
+    () => {
+        if !fixtures_available() {
+            eprintln!("skipped: analysis/shaders/console_xsc fixtures are not present (local game dumps, see CONTRIBUTING.md)");
+            return;
+        }
+    };
+}
+
 fn hlsl_of(name: &str) -> tombox_xshader::hlsl::Translated {
     let ex = extract(&fixture(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
     translate(&ex).unwrap_or_else(|e| panic!("{name}: {e}"))
@@ -34,6 +50,7 @@ fn hlsl_of(name: &str) -> tombox_xshader::hlsl::Translated {
 
 #[test]
 fn console_as_fixture_uses_the_decoded_ring_abi() {
+    require_fixtures!();
     let ex = extract(&fixture("as3.dxbc")).unwrap();
     assert_eq!(ex.stage, Stage::Amplification);
     let m = ex.gs_info.and_then(|g| g.mesh).expect("PSV0 AS info");
@@ -50,6 +67,7 @@ fn console_as_fixture_uses_the_decoded_ring_abi() {
 
 #[test]
 fn amp_hlsl_dispatches_from_the_args_entry() {
+    require_fixtures!();
     let t = hlsl_of("as3.dxbc");
     assert_eq!(t.profile, "as_6_5");
     assert!(t.hlsl.starts_with("#define TB_AMP_GMEM 1\n"), "{}", t.hlsl);
@@ -65,6 +83,7 @@ fn amp_hlsl_dispatches_from_the_args_entry() {
 
 #[test]
 fn paired_mesh_shader_reads_the_payload_window() {
+    require_fixtures!();
     let t = hlsl_of("ms3.dxbc");
     assert!(t.hlsl.contains("in payload TbPayload tb_pl"), "{}", t.hlsl);
     assert!(t.hlsl.contains("s10 = 0x3u; s11 = 0u;"), "{}", t.hlsl);
@@ -269,6 +288,7 @@ unsafe fn render(as_name: &str, ms_name: &str, groups: u32) -> Result<([[u32; 4]
 
 #[test]
 fn gpu_console_amplification_feeds_payload_and_group_counts_to_the_mesh_stage() {
+    require_fixtures!();
     let (px, fault) = unsafe { render("as3.dxbc", "ms3.dxbc", 2) }.unwrap_or_else(|e| panic!("{e}"));
     let clear = [5, 6, 7, 8];
     let mut want = [clear; W];

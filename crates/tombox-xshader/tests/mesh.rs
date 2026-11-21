@@ -284,7 +284,10 @@ fn gta_dir() -> Option<std::path::PathBuf> {
 
 #[test]
 fn gta_mesh_programs_extract_with_mesh_runtime_info() {
-    let dir = gta_dir().expect("analysis/shaders/mesh fixtures");
+    let Some(dir) = gta_dir() else {
+        eprintln!("skipped: analysis/shaders/mesh fixtures are not present (local game dumps, see CONTRIBUTING.md)");
+        return;
+    };
     let mut n = 0;
     for e in std::fs::read_dir(dir).unwrap() {
         let p = e.unwrap().path();

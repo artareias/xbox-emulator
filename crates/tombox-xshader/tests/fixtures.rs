@@ -17,6 +17,22 @@ fn fixture(name: &str) -> Vec<u8> {
     std::fs::read(&p).unwrap_or_else(|e| panic!("missing fixture {}: {e}", p.display()))
 }
 
+/// Fixtures are extracted from local game dumps and are never committed (see CONTRIBUTING.md),
+/// so a clean checkout has no `analysis/shaders` directory. Tests that need them skip with a
+/// notice in that case. If the directory exists, a missing file still fails the test.
+fn fixtures_available() -> bool {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../analysis/shaders").is_dir()
+}
+
+macro_rules! require_fixtures {
+    () => {
+        if !fixtures_available() {
+            eprintln!("skipped: analysis/shaders fixtures are not present (local game dumps, see CONTRIBUTING.md)");
+            return;
+        }
+    };
+}
+
 fn check(name: &str, want_stage: Stage) {
     let blob = fixture(name);
     let ex = extract(&blob).expect("extract");
@@ -41,16 +57,19 @@ fn check(name: &str, want_stage: Stage) {
 
 #[test]
 fn vertex_shader_extracts_and_decodes() {
+    require_fixtures!();
     check("fortnite_vs_sample.dxbc", Stage::Vertex);
 }
 
 #[test]
 fn pixel_shader_extracts_and_decodes() {
+    require_fixtures!();
     check("fortnite_ps_sample.dxbc", Stage::Pixel);
 }
 
 #[test]
 fn compute_shader_extracts_and_decodes() {
+    require_fixtures!();
     check("fortnite_cs_clear.dxbc", Stage::Compute);
     let ex = extract(&fixture("fortnite_cs_clear.dxbc")).unwrap();
     // Thread-group size lives in the ISA preamble.
@@ -60,6 +79,7 @@ fn compute_shader_extracts_and_decodes() {
 /// The HLSL emitter must accept all three real shaders and bind what they actually use.
 #[test]
 fn fixtures_translate_to_hlsl() {
+    require_fixtures!();
     use tombox_xshader::hlsl::translate;
     let vs = translate(&extract(&fixture("fortnite_vs_sample.dxbc")).unwrap()).expect("VS");
     assert_eq!(vs.profile, "vs_5_0");
@@ -77,6 +97,7 @@ fn fixtures_translate_to_hlsl() {
 
 #[test]
 fn xdefiant_vs_swappc_s4_binds_root_tables() {
+    require_fixtures!();
     let ex = extract(&fixture("xdefiant_vs_swappc_s4.dxbc")).expect("extract");
     let t = tombox_xshader::hlsl::translate(&ex).expect("translate");
     for want in ["register(b1720)", "register(b1721)", "register(b1722)", "register(b1760)"] {
@@ -86,6 +107,7 @@ fn xdefiant_vs_swappc_s4_binds_root_tables() {
 }
 #[test]
 fn xdefiant_ps_position_precedes_front_face() {
+    require_fixtures!();
     let ex = extract(&fixture("xdefiant_ps_frontface_quad.dxbc")).expect("extract");
     let t = tombox_xshader::hlsl::translate(&ex).expect("translate");
     let pos = t.hlsl.find(": SV_Position").expect("SV_Position input");
