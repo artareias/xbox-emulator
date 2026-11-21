@@ -2895,7 +2895,7 @@ impl<'a> Emitter<'a> {
                     "s_min_i32" => format!("asuint(min(asint({a}), asint({b})))"),
                     "s_max_i32" => format!("asuint(max(asint({a}), asint({b})))"),
                     "s_cselect_b32" => format!("((scc != 0u) ? {a} : {b})"),
-                    "s_bfe_u32" => format!("(({a} >> ({b} & 31u)) & ((1u << (({b} >> 16) & 31u)) - 1u))"),
+                    "s_bfe_u32" => format!("((((({b}) >> 16) & 127u) >= 32u) ? ({a} >> ({b} & 31u)) : (({a} >> ({b} & 31u)) & ((1u << ((({b}) >> 16) & 31u)) - 1u)))"),
                     "s_bfe_i32" => format!("tb_bfe_i32({a}, {b})"),
                     "s_bfm_b32" => format!("(((1u << ({a} & 31u)) - 1u) << ({b} & 31u))"),
                     "s_lshl1_add_u32" => format!("(({a} << 1) + {b})"),
